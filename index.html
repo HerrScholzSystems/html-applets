@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boxplot-Master NRW</title>
+    <style>
+        :root {
+            --nrw-blue: #005A9B;
+            --nrw-light: #f4f7f9;
+            --success-bg: #d4edda;
+            --success-text: #155724;
+            --error-bg: #f8d7da;
+            --error-text: #721c24;
+            --accent: #f39c12;
+            --color-min: #d00000;
+            --color-q1:  #ff8c00;
+            --color-med: #6a0dad;
+            --color-q3:  #008000;
+            --color-max: #0000ff;
+        }
+
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: #e9ecef; margin: 0; padding: 10px; display: flex; justify-content: center; }
+        .container { max-width: 950px; width: 100%; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); position: relative; }
+        h1 { color: var(--nrw-blue); text-align: center; border-bottom: 3px solid var(--nrw-blue); padding-bottom: 10px; margin-top: 0; }
+        .step { display: none; }
+        .step.active { display: block; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .data-pool { display: flex; flex-wrap: wrap; gap: 8px; margin: 15px 0; min-height: 50px; padding: 15px; background: var(--nrw-light); border: 2px dashed #bdc3c7; border-radius: 10px; justify-content: center; }
+        .data-point { width: 38px; height: 38px; background-color: var(--nrw-blue); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85em; cursor: pointer; user-select: none; }
+        .data-point.correct { background-color: #28a745; cursor: default; }
+
+        .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin: 20px 0; }
+        .input-card { display: flex; flex-direction: column; align-items: center; background: #fff; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        .input-card label { font-weight: bold; font-size: 0.85em; margin-bottom: 8px; }
+        .input-card input { width: 65px; padding: 8px; text-align: center; border: 2px solid #ccc; border-radius: 5px; font-size: 1.1em; }
+
+        .labeling-container { position: relative; width: 100%; height: 380px; background: #fff; margin-top: 10px; border: 1px solid #eee; border-radius: 10px;}
+        .drop-zone { position: absolute; width: 135px; height: 42px; border: 3px dashed #aaa; border-radius: 8px; background: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.85em; font-weight: bold; z-index: 10; transition: background 0.3s; }
+        .drop-zone.correct { border-style: solid; border-color: #28a745 !important; background: #f0fff4; }
+        .drop-zone.wrong { border-style: solid; border-color: #dc3545 !important; background: #fff5f5; }
+
+        .term-pool { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; padding: 15px; background: var(--nrw-light); border-radius: 10px; margin-top: 10px; min-height: 70px; }
+        .draggable-term { width: 130px; height: 40px; background: var(--nrw-blue); color: white; border-radius: 6px; cursor: grab; display: flex; align-items: center; justify-content: center; font-size: 0.85em; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+
+        canvas { width: 100%; height: 200px; background: #fff; border: 1px solid #eee; border-radius: 8px; touch-action: none; cursor: ew-resize; }
+
+        .exercise-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 15px 0; background: #f1f3f5; padding: 15px; border-radius: 10px; }
+        .control-item { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .control-item span { font-weight: bold; font-size: 0.75em; color: var(--nrw-blue); }
+        .arrow-btns { display: flex; gap: 8px; }
+        .arrow-btn { background: var(--nrw-blue); color: white; border: none; width: 40px; height: 35px; border-radius: 5px; font-size: 1.1em; cursor: pointer; }
+
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 20px; }
+        button.main-btn { background: var(--nrw-blue); color: white; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .btn-orange { background: var(--accent) !important; }
+        .btn-secondary { background: #6c757d !important; }
+        .feedback-box { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin: 15px 0; display: none; }
+        .instruction { background: #e7f3ff; padding: 12px; border-left: 5px solid var(--nrw-blue); font-size: 0.95em; }
+
+        input.valid { border-color: #28a745 !important; background: #e8f5e9; }
+        input.invalid { border-color: #dc3545 !important; background: #ffebee; }
+
+        #teacher-skip { position: fixed; bottom: 0; right: 0; width: 30px; height: 30px; background: black; clip-path: polygon(100% 0, 0% 100%, 100% 100%); cursor: pointer; z-index: 9999; opacity: 0.1; }
+        #teacher-skip:hover { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<div id="teacher-skip" onclick="skipStep()"></div>
+
+<div class="container">
+    <h1>Boxplot-Labor</h1>
+
+    <!-- SCHRITT 1: SORTIEREN -->
+    <div id="step1" class="step active">
+        <div class="instruction"><strong>Schritt 1:</strong> Erstelle die Rangliste (cm) von klein nach groß.</div>
+        <div id="unsorted-pool" class="data-pool"></div>
+        <div id="sorted-pool" class="data-pool" style="border-style: solid; border-color: var(--nrw-blue);"></div>
+        <button onclick="checkSorting()" id="btn-check-sort" class="main-btn" style="display:none; margin: 10px auto;">Sortierung prüfen</button>
+    </div>
+
+    <!-- SCHRITT 2: KENNWERTE -->
+    <div id="step2" class="step">
+        <div class="instruction"><strong>Schritt 2:</strong> Berechne die Kennwerte aus deiner sortierten Liste.</div>
+        <div id="display-sorted-data" class="data-pool"></div>
+        <div class="input-grid">
+            <div class="input-card"><label>Minimum</label><input type="number" id="in-min"></div>
+            <div class="input-card"><label>Unteres Quartil</label><input type="number" id="in-q1"></div>
+            <div class="input-card"><label>Median</label><input type="number" id="in-med"></div>
+            <div class="input-card"><label>Oberes Quartil</label><input type="number" id="in-q3"></div>
+            <div class="input-card"><label>Maximum</label><input type="number" id="in-max"></div>
+        </div>
+        <button onclick="checkCalculations()" class="main-btn" style="display:block; margin: 20px auto;">Prüfen & Zeichnen</button>
+    </div>
+
+    <!-- SCHRITT 3: VERGLEICH -->
+    <div id="step3" class="step">
+        <div id="fb-success" class="feedback-box" style="background: var(--success-bg); color: var(--success-text);">Perfekt berechnet!</div>
+        <div id="fb-error" class="feedback-box" style="background: var(--error-bg); color: var(--error-text);">Fehler gefunden. Klicke auf "Werte korrigieren".</div>
+        <canvas id="userCanvas"></canvas>
+        <canvas id="solutionCanvas"></canvas>
+        <div class="btn-group">
+            <button onclick="location.reload()" class="btn-secondary main-btn">Neustart</button>
+            <button id="btn-back" onclick="goBackToStep2()" class="btn-orange main-btn">Werte korrigieren</button>
+            <button id="btn-next-step" onclick="initLabeling()" class="btn-orange main-btn" style="display:none;">Weiter zur Beschriftung →</button>
+        </div>
+    </div>
+
+    <!-- SCHRITT 3.5: BESCHRIFTUNG -->
+    <div id="step-labeling" class="step">
+        <div class="instruction"><strong>Schritt 3:</strong> Ziehe die Fachbegriffe in die farblich passenden Boxen.</div>
+        <div class="labeling-container" id="labeling-container">
+            <canvas id="labelingCanvas"></canvas>
+        </div>
+        <div class="term-pool" id="term-pool"></div>
+        <div id="label-fb" class="feedback-box"></div>
+        <div class="btn-group">
+            <button onclick="checkLabeling()" class="main-btn">Beschriftung prüfen</button>
+            <button id="btn-final-ex" onclick="startExercise()" class="btn-orange main-btn" style="display:none;">Zum Übungsmodus →</button>
+        </div>
+    </div>
+
+    <!-- SCHRITT 4: ÜBUNG -->
+    <div id="step4" class="step">
+        <div class="instruction"><strong>Freies Training:</strong> Erstelle den Boxplot für die zufälligen Daten.</div>
+        <div id="exercise-data" class="data-pool"></div>
+        <canvas id="interactiveCanvas"></canvas>
+        <div class="exercise-controls">
+            <div class="control-item"><span>Minimum</span><div class="arrow-btns"><button class="arrow-btn" onclick="moveEx('min',-0.5)">◀</button><button class="arrow-btn" onclick="moveEx('min',0.5)">▶</button></div></div>
+            <div class="control-item"><span>Unt. Quartil</span><div class="arrow-btns"><button class="arrow-btn" onclick="moveEx('q1',-0.5)">◀</button><button class="arrow-btn" onclick="moveEx('q1',0.5)">▶</button></div></div>
+            <div class="control-item"><span>Median</span><div class="arrow-btns"><button class="arrow-btn" onclick="moveEx('med',-0.5)">◀</button><button class="arrow-btn" onclick="moveEx('med',0.5)">▶</button></div></div>
+            <div class="control-item"><span>Ob. Quartil</span><div class="arrow-btns"><button class="arrow-btn" onclick="moveEx('q3',-0.5)">◀</button><button class="arrow-btn" onclick="moveEx('q3',0.5)">▶</button></div></div>
+            <div class="control-item"><span>Maximum</span><div class="arrow-btns"><button class="arrow-btn" onclick="moveEx('max',-0.5)">◀</button><button class="arrow-btn" onclick="moveEx('max',0.5)">▶</button></div></div>
+        </div>
+        <div id="exercise-feedback" class="feedback-box"></div>
+        <div class="btn-group">
+            <button onclick="checkExercise()" class="main-btn">Ergebnis prüfen</button>
+            <button onclick="startExercise()" class="btn-secondary main-btn">Neue Aufgabe</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const fixedData = [141, 148, 149, 149, 149, 150, 150, 150, 151, 152, 152, 154, 155, 155, 156, 157, 158, 160, 168];
+    const solution = { min: 141, q1: 149, med: 152, q3: 156, max: 168 };
+    const colorMap = { min: '#d00000', q1: '#ff8c00', med: '#6a0dad', q3: '#008000', max: '#0000ff' };
+    let userSorted = [];
+
+    function init() {
+        const pool = document.getElementById('unsorted-pool');
+        [...fixedData].sort(() => Math.random() - 0.5).forEach(val => {
+            const div = document.createElement('div');
+            div.className = 'data-point'; div.innerText = val;
+            div.onclick = () => {
+                if(div.parentNode.id === 'unsorted-pool') {
+                    document.getElementById('sorted-pool').appendChild(div);
+                    userSorted.push(val);
+                } else {
+                    document.getElementById('unsorted-pool').appendChild(div);
+                    userSorted.splice(userSorted.indexOf(val), 1);
+                }
+                document.getElementById('btn-check-sort').style.display = (userSorted.length === fixedData.length) ? 'block' : 'none';
+            };
+            pool.appendChild(div);
+        });
+    }
+
+    function checkSorting() {
+        if (userSorted.every((v, i) => v === fixedData[i])) {
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+            const cont = document.getElementById('display-sorted-data');
+            fixedData.forEach(v => { const d=document.createElement('div'); d.className='data-point correct'; d.innerText=v; cont.appendChild(d); });
+        } else { alert("Die Reihenfolge stimmt noch nicht!"); }
+    }
+
+    function checkCalculations() {
+        const u = {
+            min: parseFloat(document.getElementById('in-min').value),
+            q1: parseFloat(document.getElementById('in-q1').value),
+            med: parseFloat(document.getElementById('in-med').value),
+            q3: parseFloat(document.getElementById('in-q3').value),
+            max: parseFloat(document.getElementById('in-max').value)
+        };
+        let err = 0;
+        for (let k in solution) {
+            const el = document.getElementById('in-' + k);
+            if (u[k] === solution[k]) el.className = 'valid';
+            else { el.className = 'invalid'; err++; }
+        }
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step3').classList.add('active');
+        if (err === 0) {
+            document.getElementById('fb-success').style.display = "block";
+            document.getElementById('btn-next-step').style.display = "inline-block";
+            document.getElementById('btn-back').style.display = "none";
+        } else {
+            document.getElementById('fb-error').style.display = "block";
+            document.getElementById('btn-back').style.display = "inline-block";
+        }
+        drawBoxplot('userCanvas', u, "Dein Entwurf", "#444");
+        drawBoxplot('solutionCanvas', solution, "Musterlösung", "#005A9B");
+    }
+
+    function goBackToStep2() {
+        document.getElementById('step3').classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+        document.getElementById('fb-error').style.display = "none";
+    }
+
+    function drawBoxplot(canvasId, v, label, baseColor, minS=138, maxS=170, colored=false, fullAxis=false) {
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width = canvas.offsetWidth * 2;
+        const h = canvas.height = 400;
+        ctx.scale(2,2);
+        const dW = w/2, dH = h/2, pad = 50;
+        const getX = (val) => pad + (val - minS) * (dW - 2 * pad) / (maxS - minS);
+
+        ctx.clearRect(0, 0, dW, dH);
+        const axisY = dH - 60;
+        
+        ctx.strokeStyle = "#444"; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(pad, axisY); ctx.lineTo(dW-pad, axisY); ctx.stroke();
+        ctx.textAlign = "center"; ctx.font = "10px Arial"; ctx.fillStyle = "#444";
+        
+        for(let i=minS; i<=maxS; i += 0.5) {
+            const x = getX(i);
+            if(i % 1 === 0) {
+                ctx.beginPath(); ctx.moveTo(x, axisY); ctx.lineTo(x, axisY+5); ctx.stroke();
+                if(fullAxis || i % 2 === 0) ctx.fillText(i, x, axisY+18);
+            } else {
+                ctx.beginPath(); ctx.moveTo(x, axisY); ctx.lineTo(x, axisY+3); ctx.stroke();
+            }
+        }
+
+        if (Object.values(v).some(isNaN)) return;
+        const bH = 50, y = axisY - 85; 
+
+        ctx.strokeStyle = baseColor; ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(getX(v.min), y+bH/2); ctx.lineTo(getX(v.q1), y+bH/2);
+        ctx.moveTo(getX(v.q3), y+bH/2); ctx.lineTo(getX(v.max), y+bH/2);
+        ctx.stroke();
+        ctx.strokeRect(getX(v.q1), y, getX(v.q3)-getX(v.q1), bH);
+
+        const drawLine = (val, key, isWhisker) => {
+            ctx.strokeStyle = colored ? colorMap[key] : baseColor;
+            ctx.lineWidth = key === 'med' ? 4 : 3;
+            ctx.beginPath();
+            const offset = isWhisker ? 15 : 0;
+            ctx.moveTo(getX(val), y + offset);
+            ctx.lineTo(getX(val), y + bH - offset);
+            ctx.stroke();
+        };
+
+        drawLine(v.min, 'min', true);
+        drawLine(v.q1, 'q1', false);
+        drawLine(v.med, 'med', false);
+        drawLine(v.q3, 'q3', false);
+        drawLine(v.max, 'max', true);
+
+        ctx.font = "bold 12px Arial"; ctx.fillStyle = "#333"; ctx.textAlign = "left";
+        ctx.fillText(label, 10, 30);
+    }
+
+    function initLabeling() {
+        document.getElementById('step3').classList.remove('active');
+        document.getElementById('step-labeling').classList.add('active');
+        const container = document.getElementById('labeling-container');
+        
+        drawBoxplot('labelingCanvas', solution, "Fachbegriffe zuordnen", "#ccc", 138, 170, true);
+
+        document.querySelectorAll('.drop-zone').forEach(z => z.remove());
+        const keys = ['min', 'q1', 'med', 'q3', 'max'];
+        const pad = 50, minS = 138, maxS = 170;
+
+        keys.forEach((k) => {
+            const x = pad + (solution[k] - minS) * (container.offsetWidth - 2 * pad) / (maxS - minS);
+            const zone = document.createElement('div');
+            zone.className = 'drop-zone'; zone.dataset.correct = 'term-' + k;
+            zone.style.borderColor = colorMap[k];
+            zone.style.left = (x - 67) + 'px';
+            let yPos = 175; 
+            if (k === 'q1' || k === 'q3') yPos = 230;
+            if (k === 'med') yPos = 285;
+            zone.style.top = yPos + 'px';
+            container.appendChild(zone);
+            zone.ondragover = e => e.preventDefault();
+            zone.ondrop = e => {
+                const termId = e.dataTransfer.getData('text');
+                zone.appendChild(document.getElementById(termId));
+            };
+        });
+
+        const pool = document.getElementById('term-pool'); pool.innerHTML = "";
+        const terms = [
+            {id: 'term-min', t: 'Minimum'}, {id: 'term-q1', t: 'unteres Quartil'},
+            {id: 'term-med', t: 'Median'}, {id: 'term-q3', t: 'oberes Quartil'},
+            {id: 'term-max', t: 'Maximum'}
+        ].sort(() => Math.random() - 0.5);
+        terms.forEach(t => {
+            const el = document.createElement('div');
+            el.className = 'draggable-term'; el.id = t.id; el.draggable = true; el.innerText = t.t;
+            el.ondragstart = e => e.dataTransfer.setData('text', t.id);
+            pool.appendChild(el);
+        });
+    }
+
+    function checkLabeling() {
+        let allOk = true;
+        const zones = document.querySelectorAll('.drop-zone');
+        const feedback = document.getElementById('label-fb');
+
+        zones.forEach(z => {
+            const child = z.firstElementChild;
+            z.classList.remove('correct', 'wrong');
+            if (child) {
+                if (child.id === z.dataset.correct) {
+                    z.classList.add('correct');
+                } else {
+                    z.classList.add('wrong');
+                    allOk = false;
+                }
+            } else {
+                z.classList.add('wrong');
+                allOk = false;
+            }
+        });
+
+        feedback.style.display = "block";
+        if (allOk) {
+            feedback.style.background = "var(--success-bg)";
+            feedback.style.color = "var(--success-text)";
+            feedback.innerText = "Hervorragend! Alles richtig beschriftet.";
+            document.getElementById('btn-final-ex').style.display = "inline-block";
+        } else {
+            feedback.style.background = "var(--error-bg)";
+            feedback.style.color = "var(--error-text)";
+            feedback.innerText = "Das stimmt noch nicht ganz. Überprüfe die rot markierten Boxen.";
+            document.getElementById('btn-final-ex').style.display = "none";
+        }
+    }
+
+    let exSol = {}, exUser = {}, draggingPart = null;
+    let exMinS, exMaxS;
+
+    function startExercise() {
+        document.getElementById('step-labeling').classList.remove('active');
+        document.getElementById('step4').classList.add('active');
+        
+        // Zufällige Anzahl 11-19
+        const count = Math.floor(Math.random() * 9) + 11; 
+        const startVal = 20 + Math.floor(Math.random() * 40);
+        const data = Array.from({length: count}, () => startVal + Math.floor(Math.random() * 25)).sort((a,b) => a-b);
+        
+        const getMed = (arr) => {
+            const mid = Math.floor(arr.length / 2);
+            return arr.length % 2 !== 0 ? arr[mid] : (arr[mid-1] + arr[mid]) / 2;
+        };
+        
+        const mid = Math.floor(data.length / 2);
+        exSol = { 
+            min: data[0], 
+            max: data[data.length-1], 
+            med: getMed(data), 
+            q1: getMed(data.slice(0, mid)), 
+            q3: getMed(data.slice(data.length % 2 === 0 ? mid : mid + 1)) 
+        };
+
+        exMinS = Math.floor(exSol.min - 3); exMaxS = Math.ceil(exSol.max + 3);
+        exUser = { min: exMinS+1, q1: exMinS+3, med: exMinS+5, q3: exMinS+7, max: exMinS+9 };
+
+        const cont = document.getElementById('exercise-data'); cont.innerHTML = "";
+        data.forEach(v => { const d=document.createElement('div'); d.className='data-point correct'; d.innerText=v; cont.appendChild(d); });
+        
+        setupInteractiveCanvas();
+        renderEx();
+    }
+
+    function moveEx(k, d) { exUser[k] = Math.max(exMinS, Math.min(exMaxS, exUser[k] + d)); renderEx(); }
+    function renderEx() { drawBoxplot('interactiveCanvas', exUser, "Training", "#005A9B", exMinS, exMaxS, false, true); }
+
+    function setupInteractiveCanvas() {
+        const canvas = document.getElementById('interactiveCanvas');
+        const getVal = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const x = (clientX - rect.left) * (canvas.width / rect.width) / 2;
+            const pad = 50;
+            return exMinS + (x - pad) * (exMaxS - exMinS) / (canvas.offsetWidth - 100);
+        };
+
+        canvas.onmousedown = (e) => {
+            const v = getVal(e);
+            for(let k in exUser) { if(Math.abs(exUser[k] - v) < 1.0) { draggingPart = k; break; } }
+        };
+        window.onmousemove = (e) => { 
+            if(draggingPart) { 
+                let val = Math.round(getVal(e) * 2) / 2;
+                exUser[draggingPart] = Math.max(exMinS, Math.min(exMaxS, val)); 
+                renderEx(); 
+            } 
+        };
+        window.onmouseup = () => draggingPart = null;
+        canvas.ontouchstart = (e) => { canvas.onmousedown(e.touches[0]); e.preventDefault(); };
+        window.ontouchmove = (e) => { if(draggingPart) { window.onmousemove(e.touches[0]); e.preventDefault(); } };
+        window.ontouchend = () => draggingPart = null;
+    }
+
+    function checkExercise() {
+        let ok = true;
+        for(let k in exSol) { if(Math.abs(exUser[k] - exSol[k]) > 0.1) ok = false; }
+        const fb = document.getElementById('exercise-feedback');
+        fb.style.display = "block";
+        fb.style.background = ok ? "var(--success-bg)" : "var(--error-bg)";
+        fb.innerText = ok ? "Hervorragend gelöst!" : "Da ist noch ein Fehler.";
+    }
+
+    function skipStep() {
+        const steps = ['step1', 'step2', 'step3', 'step-labeling', 'step4'];
+        let curr = steps.findIndex(s => document.getElementById(s).classList.contains('active'));
+        if (curr < 4) {
+            document.getElementById(steps[curr]).classList.remove('active');
+            const next = steps[curr+1];
+            document.getElementById(next).classList.add('active');
+            if(next === 'step2') {
+                const cont = document.getElementById('display-sorted-data');
+                cont.innerHTML = ""; fixedData.forEach(v => { const d=document.createElement('div'); d.className='data-point correct'; d.innerText=v; cont.appendChild(d); });
+            }
+            if(next === 'step-labeling') initLabeling();
+            if(next === 'step4') startExercise();
+        }
+    }
+
+    init();
+</script>
+</body>
+</html>
